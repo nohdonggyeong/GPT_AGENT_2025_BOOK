@@ -155,26 +155,26 @@ def stt_to_rttm(
     result, df_stt = whisper_stt(
         audio_file_path, 
         stt_output_file_path
-    ) # ①
+    )
 
     df_rttm = speaker_diarization(
         audio_file_path,
         rttm_file_path,
         rttm_csv_file_path
-    ) # ①
+    )
 
-    df_rttm["text"] = "" #  ②
+    df_rttm["text"] = ""
 
-    for i_stt, row_stt in df_stt.iterrows(): #  ②
+    for i_stt, row_stt in df_stt.iterrows():
         overlap_dict = {}
-        for i_rttm, row_rttm in df_rttm.iterrows(): # ③
+        for i_rttm, row_rttm in df_rttm.iterrows():
             overlap = max(0, min(row_stt["end"], row_rttm["end"]) - max(row_stt["start"], row_rttm["start"]))
             overlap_dict[i_rttm] = overlap
         
         max_overlap = max(overlap_dict.values())
         max_overlap_idx = max(overlap_dict, key=overlap_dict.get)
 
-        if max_overlap > 0: # ③
+        if max_overlap > 0:
             df_rttm.at[max_overlap_idx, "text"] += row_stt["text"] + "\n"
 
     df_rttm.to_csv(
@@ -182,7 +182,7 @@ def stt_to_rttm(
         index=False,    # 인덱스는 저장하지 않음
         sep='|',
         encoding='utf-8'
-    )  # ④
+    )
     return df_rttm
 
 
@@ -192,20 +192,6 @@ if __name__ == "__main__":
     rttm_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타.rttm"
     rttm_csv_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타_rttm.csv"
     final_csv_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타_final.csv"
-
-    # result, df = whisper_stt(
-    #     audio_file_path, 
-    #     stt_output_file_path
-    # )
-    # print(df)
-
-    # df_rttm = speaker_diarization(
-    #     audio_file_path,
-    #     rttm_file_path,
-    #     rttm_csv_file_path
-    # )
-
-    # print(df_rttm)
 
     df_rttm = stt_to_rttm(
         audio_file_path,
