@@ -1,44 +1,6 @@
 """
-- 시간대별로 화자를 구분하는 함수 speaker_diarization
-
-          start      end  speaker_id  duration
-number                                        
-0         0.993   30.204  SPEAKER_00    29.211
-1        32.414   41.391  SPEAKER_01     8.977
-2        41.611   42.455  SPEAKER_00     0.844
-3        41.645   42.708  SPEAKER_01     1.063
-4        42.674   44.024  SPEAKER_00     1.350
-5        45.813   67.109  SPEAKER_01    21.296
-6        67.227   82.786  SPEAKER_00    15.559
-7        84.659  102.564  SPEAKER_01    17.905
-8       103.492  117.532  SPEAKER_00    14.040
-9       119.759  138.676  SPEAKER_01    18.917
-10      139.351  168.967  SPEAKER_00    29.616
-11      170.907  192.321  SPEAKER_01    21.414
-12      192.322  193.689  SPEAKER_00     1.367
-13      192.760  193.503  SPEAKER_01     0.743
-14      193.823  216.571  SPEAKER_00    22.748
-15      218.579  237.783  SPEAKER_01    19.204
-16      238.103  238.677  SPEAKER_00     0.574
-17      238.188  239.352  SPEAKER_01     1.164
-18      239.858  240.651  SPEAKER_00     0.793
-19      240.297  240.989  SPEAKER_01     0.692
-20      240.989  251.334  SPEAKER_00    10.345
-21      253.696  271.550  SPEAKER_01    17.854
-22      272.140  304.557  SPEAKER_00    32.417
-23      306.970  326.022  SPEAKER_01    19.052
-24      326.360  335.472  SPEAKER_00     9.112
-25      337.548  355.925  SPEAKER_01    18.377
-26      356.245  363.974  SPEAKER_00     7.729
-27      365.982  381.423  SPEAKER_01    15.441
-28      382.165  383.734  SPEAKER_00     1.569
-29      385.726  397.184  SPEAKER_01    11.458
-30      397.623  399.108  SPEAKER_00     1.485
-31      401.437  406.601  SPEAKER_01     5.164
-32      407.326  408.338  SPEAKER_00     1.012
-33      410.093  417.451  SPEAKER_01     7.358
-34      417.755  421.231  SPEAKER_00     3.476
-35      423.644  429.348  SPEAKER_01     5.704
+- whisper_stt: 받아쓰기하는 함수
+- speaker_diarization: 시간대별로 화자를 구분하는 함수
 """
 
 import os
@@ -168,16 +130,61 @@ def speaker_diarization(
 
     return df_rttm_grouped
 
-if __name__ == "__main__":
-    audio_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/audio/싼기타_비싼기타.mp3"
-    stt_output_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타.csv"
-    rttm_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타.rttm"
-    rttm_csv_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타_rttm.csv"
+def stt_to_rttm(
+        audio_file_path: str,
+        stt_output_file_path: str,
+        rttm_file_path: str,
+        rttm_csv_file_path: str,
+        final_output_csv_file_path: str
+    ):
+
+    result, df_stt = whisper_stt(
+        audio_file_path, 
+        stt_output_file_path
+    )
 
     df_rttm = speaker_diarization(
         audio_file_path,
         rttm_file_path,
         rttm_csv_file_path
+    )
+
+    df_rttm["text"] = ""
+
+    for i_stt, row_stt in df_stt.iterrows():
+        overlap_dict = {}
+        for i_rttm, row_rttm in df_rttm.iterrows():
+            overlap = max(0, min(row_stt["end"], row_rttm["end"]) - max(row_stt["start"], row_rttm["start"]))
+            overlap_dict[i_rttm] = overlap
+        
+        max_overlap = max(overlap_dict.values())
+        max_overlap_idx = max(overlap_dict, key=overlap_dict.get)
+
+        if max_overlap > 0:
+            df_rttm.at[max_overlap_idx, "text"] += row_stt["text"] + "\n"
+
+    df_rttm.to_csv(
+        final_output_csv_file_path,
+        index=False,    # 인덱스는 저장하지 않음
+        sep='|',
+        encoding='utf-8'
+    )
+    return df_rttm
+
+
+if __name__ == "__main__":
+    audio_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/audio/싼기타_비싼기타.mp3"
+    stt_output_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타.csv"
+    rttm_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타.rttm"
+    rttm_csv_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타_rttm.csv"
+    final_csv_file_path = "/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap05/sec03/싼기타_비싼기타_final.csv"
+
+    df_rttm = stt_to_rttm(
+        audio_file_path,
+        stt_output_file_path,
+        rttm_file_path,
+        rttm_csv_file_path,
+        final_csv_file_path
     )
 
     print(df_rttm)
