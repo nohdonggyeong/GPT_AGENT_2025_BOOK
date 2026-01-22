@@ -1,0 +1,12 @@
+[
+    {
+        "no": 1,
+        "eng": "Which of the following descriptions of the image is incorrect?\n- (1) Many people are gathered and seated at the event.\n- (2) The words \"DIVE 2024 IN BUSAN\" are visible in the image.\n- (3) People are lining up to receive food.\n- (4) The event is taking place indoors.",
+        "img": "busan_dive.jpg"
+    },
+    {
+        "no": 2,
+        "eng": "Which of the following descriptions of the image is incorrect?\n- (1) A yellow sculpture is visible.\n- (2) The building facade has the words 'Local Stitch'.\n- (3) There is a black sign attached to the wall.\n- (4) The sculpture is green.",
+        "img": "local_stitch.jpg"
+    }
+]
