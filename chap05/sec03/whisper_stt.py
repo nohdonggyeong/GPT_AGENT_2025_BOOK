@@ -1,7 +1,4 @@
-"""
-- whisper_stt: 받아쓰기하는 함수
-- speaker_diarization: 시간대별로 화자를 구분하는 함수
-"""
+# Whisper로 전사, speaker-diarization으로 화자 분리하는 모듈
 
 import os
 from dotenv import load_dotenv
@@ -13,17 +10,18 @@ import transformers.utils.import_utils as import_utils
 from pyannote.audio import Pipeline
 
 os.environ["PATH"] += os.pathsep + r"/opt/homebrew/bin/ffmpeg/bin"
-# TorchCodec import can fail on some macOS setups; force-disable to avoid crash.
 import_utils._torchcodec_available = False
 
 def whisper_stt(
     audio_file_path: str,      
     output_file_path: str = "./output.csv"
 ):
+    # 디바이스/정밀도 설정 (GPU 사용 시 fp16)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     model_id = "openai/whisper-large-v3-turbo"
 
+    # Whisper 모델 로드
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
         model_id, torch_dtype=torch_dtype, 
         low_cpu_mem_usage=True, 
@@ -31,8 +29,10 @@ def whisper_stt(
     )
     model.to(device)
 
+    # 토크나이저/특징 추출기 로드
     processor = AutoProcessor.from_pretrained(model_id)
 
+    # 청크 단위 전사를 위한 파이프라인 구성
     pipe = pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -40,11 +40,12 @@ def whisper_stt(
         feature_extractor=processor.feature_extractor,
         torch_dtype=torch_dtype,
         device=device,
-        return_timestamps=True,  # 청크별로 타임스탬프를 반환
-        chunk_length_s=10,  # 입력 오디오를 10초씩 나누기
-        stride_length_s=2,  # 2초씩 겹치도록 청크 나누기
+        return_timestamps=True,
+        chunk_length_s=10,
+        stride_length_s=2,
     )
 
+    # 전사 실행 및 CSV로 변환
     result = pipe(audio_file_path)
     df = whisper_to_dataframe(result, output_file_path)
 
@@ -54,6 +55,7 @@ def whisper_stt(
 def whisper_to_dataframe(result, output_file_path):
     start_end_text = []
 
+    # 청크별 타임스탬프와 텍스트를 테이블로 저장
     for chunk in result["chunks"]:
         start = chunk["timestamp"][0]
         end = chunk["timestamp"][1]
@@ -69,6 +71,7 @@ def speaker_diarization(
         output_rttm_file_path: str,
         output_csv_file_path: str
 ):
+    # Hugging Face 토큰 로드 및 파이프라인 생성
     load_dotenv()
     HUGGING_FACE_TOKEN = os.getenv("HUGGING_FACE_TOKEN")
 
@@ -77,6 +80,7 @@ def speaker_diarization(
         token=HUGGING_FACE_TOKEN
     )
 
+    # 가용 디바이스 확인 및 적용
     if torch.cuda.is_available():
         print('cuda is available')
     else:
@@ -88,6 +92,7 @@ def speaker_diarization(
     else:
         print("mps is not available")
 
+    # 다이어리제이션 수행 후 RTTM 저장
     waveform, sr = torchaudio.load(audio_file_path)
     out = pipeline({"waveform": waveform, "sample_rate": sr})
 
@@ -95,17 +100,19 @@ def speaker_diarization(
     with open("싼기타_비싼기타.rttm", "w", encoding="utf-8") as rttm:
         ann.write_rttm(rttm)
 
-    # 판다스 데이터프레임으로 변환
+    # RTTM을 데이터프레임으로 변환
     df_rttm = pd.read_csv(
-        output_rttm_file_path,  # rttm 파일 경로
-        sep=' ',  # 구분자는 띄어쓰기
-        header=None,  # 헤더는 없음
+        output_rttm_file_path,
+        sep=' ',
+        header=None,
         names=['type', 'file', 'chnl', 'start', 'duration', 'C1', 'C2', 'speaker_id', 'C3', 'C4']
     )
 
+    # 구간 종료 시각 계산
     df_rttm['end'] = df_rttm['start'] + df_rttm['duration']
 
-    df_rttm["number"] = None  # number 열 만들고 None으로 초기화
+    # 연속된 동일 화자를 하나의 구간 번호로 묶기
+    df_rttm["number"] = None
     df_rttm.at[0, "number"] = 0
 
     for i in range(1, len(df_rttm)):
@@ -114,12 +121,14 @@ def speaker_diarization(
         else:
             df_rttm.at[i, "number"] = df_rttm.at[i-1, "number"]
 
+    # 구간 번호 기준으로 시작/끝/화자 집계
     df_rttm_grouped = df_rttm.groupby("number").agg(
         start=pd.NamedAgg(column='start', aggfunc='min'),
         end=pd.NamedAgg(column='end', aggfunc='max'),
         speaker_id=pd.NamedAgg(column='speaker_id', aggfunc='first')
     )
 
+    # 구간 길이 계산 후 CSV 저장
     df_rttm_grouped["duration"] = df_rttm_grouped["end"] - df_rttm_grouped["start"]
     
     df_rttm_grouped.to_csv(
@@ -149,6 +158,7 @@ def stt_to_rttm(
         rttm_csv_file_path
     )
 
+    # 화자 구간별 텍스트 누적
     df_rttm["text"] = ""
 
     for i_stt, row_stt in df_stt.iterrows():
@@ -163,9 +173,10 @@ def stt_to_rttm(
         if max_overlap > 0:
             df_rttm.at[max_overlap_idx, "text"] += row_stt["text"] + "\n"
 
+    # 화자 구간+텍스트 결합 결과 저장
     df_rttm.to_csv(
         final_output_csv_file_path,
-        index=False,    # 인덱스는 저장하지 않음
+        index=False,
         sep='|',
         encoding='utf-8'
     )
