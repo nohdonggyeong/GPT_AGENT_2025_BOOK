@@ -1,6 +1,6 @@
-# 실습. 이미지 분석, TTS로 영어 듣기 평가 문제 만들기
+# 실습: 이미지 분석 + TTS용 영어 듣기 평가 문제 생성
 
-# 이미지 경로 받고 base64로 인코딩하는 함수
+# 이미지 파일을 Base64로 인코딩하는 유틸
 from glob import glob
 import json
 from openai import OpenAI
@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 import base64
 
+# .env에서 API 키 로드 후 클라이언트 생성
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
@@ -16,7 +17,7 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-# 이미지 경로 받고 퀴즈를 만드는 함수
+# 단일 이미지로 퀴즈 1개 생성(재시도 포함)
 def image_quiz(image_path, n_trial=0, max_trial=3):
     if n_trial >= max_trial:
         raise Exception("Failed to generate a quiz.")
@@ -46,6 +47,7 @@ def image_quiz(image_path, n_trial=0, max_trial=3):
     =====
     """
 
+    # 텍스트 지시문 + 이미지 데이터를 함께 전달
     messages = [
         {
             "role": "user",
@@ -67,21 +69,23 @@ def image_quiz(image_path, n_trial=0, max_trial=3):
             messages=messages
         )
     except Exception as e:
+        # 실패 시 재시도
         print("failed\n" + e)
         return image_quiz(image_path, n_trial+1)
     
     content = response.choices[0].message.content
 
+    # 형식 검증(영문 Listening 문장이 있는지 확인)
     if "Listening:" in content:
         return content, True
     else:
         return image_quiz(image_path, n_trial+1)
 
-# 이미지 경로 받고 퀴즈를 만드는 함수
+# 단일 이미지로 1문제 생성 테스트
 q = image_quiz("/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap06/sec02/busan_dive.jpg")
 print(q)
 
-# 여러 이미지로 문제집 만들기
+# 여러 이미지로 문제집/스크립트 생성
 
 txt = ''
 eng_dict = []
@@ -102,9 +106,11 @@ for g in glob('/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap06/sec02/*.
     print(q)
     txt += q + '\n\n----------\n\n'
 
+    # 마크다운 문제집 저장
     with open('/Users/donggyeong/develop/now/GPT_AGENT_2025_BOOK/chap06/sec02/image_quiz.md', 'w', encoding='utf-8') as f:
         f.write(txt)
     
+    # 영어 스크립트만 추출해 TTS용 JSON 구성
     eng = q.split('Listening: ')[1].split('정답:')[0].strip()
 
     eng_dict.append({
