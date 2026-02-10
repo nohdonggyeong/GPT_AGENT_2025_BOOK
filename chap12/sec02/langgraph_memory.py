@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 load_dotenv()
+# OpenAI 모델 준비
 model = ChatOpenAI(model="gpt-4o-mini")
 
 from typing import Annotated
@@ -12,7 +13,7 @@ from langgraph.graph.message import add_messages
 
 class State(TypedDict):
     """
-    State 클래스틑 TypedDict를 상속받습니다.
+    State 클래스는 TypedDict를 상속받습니다.
 
     속성:
         messages (Annotated[list[str], add_messages]): 메시지들은 "list" 타입을 가집니다.
@@ -31,9 +32,10 @@ def generate(state: State):
     state (State): 현재 대화 상태를 나타내는 객체로, 이전 메시지들이 포함되어 있습니다.
 
     반환값:
-    dict: 모델이 생성한 응답 메시지를 포함하든 딕셔너리.
+    dict: 모델이 생성한 응답 메시지를 포함하는 딕셔너리.
         형식은 {"messages": [응답 메시지]}입니다.
     """
+    # 현재 누적 대화 메시지를 모델에 전달하고, 새 AI 메시지를 state에 추가합니다.
     return {"messages": model.invoke(state["messages"])}
 
 graph_builder.add_node("generate", generate)
@@ -42,6 +44,7 @@ graph_builder.add_edge(START, "generate")
 graph_builder.add_edge("generate", END)
 
 from langgraph.checkpoint.memory import MemorySaver
+# thread_id 기준으로 대화 상태를 저장/복원하는 메모리 체크포인터
 memory = MemorySaver()
 
 config = {"configurable": {"thread_id": "abcd"}}
@@ -56,6 +59,7 @@ while True:
     if user_input in ["exit", "quit", "q"]:
         break
 
+    # stream_mode="values": 매 단계의 최신 state 전체를 전달받습니다.
     for event in graph.stream({"messages": [HumanMessage(user_input)]}, config, stream_mode="values"):
         event["messages"][-1].pretty_print()
 

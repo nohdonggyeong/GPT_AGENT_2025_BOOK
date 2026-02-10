@@ -11,6 +11,7 @@ llm = ChatOllama(model="deepseek-r1:8b")
 # Load Chroma store
 from langchain_chroma import Chroma
 print("Loading existing Chroma store")
+# chap09에서 생성해 둔 벡터 DB를 재사용합니다.
 persist_directory = "/Users/donggyeong/projects/now/GPT_AGENT_2025_BOOK/chap09/chroma_store"
 
 vectorstore = Chroma(
@@ -19,6 +20,7 @@ vectorstore = Chroma(
 )
 
 # Create retriever
+# 유사도 상위 3개 문서를 검색하도록 설정합니다.
 retriever = vectorstore.as_retriever(k=3)
 
 # Create document chain
@@ -36,6 +38,7 @@ question_answering_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+# 문서들을 하나의 프롬프트로 합쳐 답변 문자열을 생성합니다.
 document_chain = create_stuff_documents_chain(llm, question_answering_prompt) | StrOutputParser()
 
 # query augmentation chain
@@ -44,9 +47,10 @@ query_augmentation_prompt = ChatPromptTemplate.from_messages(
         MessagesPlaceholder(variable_name="messages"),  # 기존 대화 내용
         (
             "system",
-            "기존의 대화 내용을 활용하여 사용자가 질문한 의도를 파악해서 한 문장의 명료한 질문으로 변환하라. 대명사나 이, 저, 그와 같은 표현을 명확한 명사로 표현하라. :\n=n{query}",
+            "기존의 대화 내용을 활용하여 사용자가 질문한 의도를 파악해서 한 문장의 명료한 질문으로 변환하라. 대명사나 이, 저, 그와 같은 표현을 명확한 명사로 표현하라. :\n{query}",
         ),
     ]
 )
 
+# 원 질문 + 보강 질문으로 검색 정확도를 높입니다.
 query_augmentation_chain = query_augmentation_prompt | llm | StrOutputParser()

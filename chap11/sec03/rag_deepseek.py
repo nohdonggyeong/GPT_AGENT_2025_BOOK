@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+# 프로젝트 루트의 .env를 로드해 API 키/환경 변수를 사용할 수 있게 합니다.
 project_root = Path(__file__).resolve().parents[2]
 load_dotenv(project_root / ".env")
 
@@ -18,6 +19,7 @@ llm = ChatOllama(model="deepseek-r1:8b")
 
 # 사용자의 메시지 처리하기 위한 함수
 def get_ai_response(messages, docs):
+    # retriever.py에서 만든 document_chain에 문맥 문서를 넣어 스트리밍 생성합니다.
     response = retriever.document_chain.stream({
 
         "messages": messages,
@@ -33,6 +35,7 @@ st.title("DeepSeek-R1 Langchain Chat")
 
 # 스트림릿 session_state에 메세지 저장
 if "messages" not in st.session_state:
+    # 첫 메시지를 시스템 프롬프트로 시작해 챗봇 역할을 고정합니다.
     st.session_state["messages"] = [
         SystemMessage("너는 문서에 기반해 답변하는 도시 정책 전문가야.")
     ]
@@ -49,16 +52,19 @@ for msg in st.session_state.messages:
 
 # 사용자 입력 처리
 if prompt := st.chat_input():
+    # 1) 사용자 입력 저장
     st.chat_message("user").write(prompt)
     st.session_state.messages.append(HumanMessage(prompt))
     print("user\t:", prompt)
 
+    # 2) 대화 맥락을 반영해 검색용 질문을 보강
     augmented_query = retriever.query_augmentation_chain.invoke({
         "messages": st.session_state["messages"],
         "query": prompt,
     })
     print("augmented_query\t", augmented_query)
 
+    # 3) 원질문 + 보강질문으로 관련 문서 검색
     print("관련 문서 검색")
     docs = retriever.retriever.invoke(f"{prompt}\n{augmented_query}")
 
@@ -67,11 +73,14 @@ if prompt := st.chat_input():
         print(doc)
         
         with st.expander(f"**문서:** {doc.metadata.get('source', '알 수 없음')}"):
-            st.write(f"**page:""{doc.metadata.get('page', '')}")
+            st.write(f"**page:** {doc.metadata.get('page', '')}")
             st.write(doc.page_content)
     print("======")
 
+    # 4) 검색된 문서를 컨텍스트로 최종 답변 생성/출력
     with st.spinner(f"AI가 답변을 준비 중입니다... '{augmented_query}'"):
         response = get_ai_response(st.session_state["messages"], docs)
         result = st.chat_message("assistant").write_stream(response)
+
+    # 5) 답변을 히스토리에 저장해 다음 턴에서 문맥으로 활용
     st.session_state["messages"].append(AIMessage(result))
