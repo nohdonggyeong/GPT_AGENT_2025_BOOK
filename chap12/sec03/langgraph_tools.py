@@ -7,8 +7,8 @@
 - 필요 패키지: langchain-openai, langgraph, langchain-community, duckduckgo-search, pytz
 
 사용 예시:
-- 기본 데모(서울 현재 시각):
-    python chap12/sec03/langgraph_tools.py
+- 현재 시각 가져오기 데모:
+    python chap12/sec03/langgraph_tools.py --mode time
 - 기사 작성 데모(툴 검색 반복):
     python chap12/sec03/langgraph_tools.py --mode article
 - 두 데모 모두 실행:
@@ -217,8 +217,8 @@ def main() -> None:
     parser.add_argument(
         "--mode",
         choices=["time", "article", "all"],
-        default="time",
-        help="실행 모드 선택",
+        required=True,
+        help="실행 모드 선택 (--mode를 반드시 작성하세요)",
     )
     parser.add_argument("--model", default="gpt-4o", help="사용할 OpenAI 모델명")
     parser.add_argument("--temperature", type=float, default=0.01, help="모델 temperature")
