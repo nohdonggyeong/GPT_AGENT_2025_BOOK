@@ -8,3 +8,4 @@ env.bak/
 venv.bak/
 chroma_store/
 chap09/data/OneNYC_2050_Strategic_Plan.pdf
+*.pdf
