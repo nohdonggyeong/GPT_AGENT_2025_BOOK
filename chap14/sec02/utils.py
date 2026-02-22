@@ -9,6 +9,7 @@ def save_state(current_path, state):
 
     messages = [(m.__class__.__name__, m.content) for m in state["messages"]]
     state_dict["messages"] = messages
+    state_dict["task_history"] = [task.to_dict() for task in state.get("task_history", [])]
 
     with open(f"{current_path}/data/state.json", "w", encoding='utf-8') as f:
         json.dump(state_dict, f, indent=4, ensure_ascii=False)
